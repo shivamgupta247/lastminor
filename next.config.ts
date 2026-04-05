@@ -7,16 +7,20 @@ const nextConfig: NextConfig = {
       {
         source: "/:path*",
         headers: [
-          { 
+          {
             key: "Cross-Origin-Embedder-Policy", value: "credentialless"
           },
-          { 
+          {
             key: "Cross-Origin-Opener-Policy", value: "same-origin"
           },
         ],
       }
     ];
-  }
+  },
+  devIndicators: {
+    appIsrStatus: false,
+    buildActivity: false,
+  },
 };
 
 export default withSentryConfig(nextConfig, {

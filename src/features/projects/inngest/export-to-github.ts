@@ -92,12 +92,21 @@ export const exportToGithub = inngest.createFunction(
 
     // Get the initial commit SHA (we need this as parent for our commit)
     const initialCommitSha = await step.run("get-initial-commit", async () => {
-      const { data: ref } = await octokit.rest.git.getRef({
-        owner: user.login,
-        repo: repoName,
-        ref: "heads/main",
-      });
-      return ref.object.sha;
+      try {
+        const { data: ref } = await octokit.rest.git.getRef({
+          owner: user.login,
+          repo: repoName,
+          ref: "heads/main",
+        });
+        return ref.object.sha;
+      } catch {
+        const { data: ref } = await octokit.rest.git.getRef({
+          owner: user.login,
+          repo: repoName,
+          ref: "heads/master",
+        });
+        return ref.object.sha;
+      }
     });
 
     // Fetch all project files with storage URLs
@@ -215,15 +224,25 @@ export const exportToGithub = inngest.createFunction(
       });
     });
 
-    // Update the main branch reference to point to our new commit
+    // Update the branch reference to point to our new commit
     await step.run("update-branch-ref", async () => {
-      return await octokit.rest.git.updateRef({
-        owner: user.login,
-        repo: repoName,
-        ref: "heads/main",
-        sha: commit.sha,
-        force: true,
-      });
+      try {
+        return await octokit.rest.git.updateRef({
+          owner: user.login,
+          repo: repoName,
+          ref: "heads/main",
+          sha: commit.sha,
+          force: true,
+        });
+      } catch {
+        return await octokit.rest.git.updateRef({
+          owner: user.login,
+          repo: repoName,
+          ref: "heads/master",
+          sha: commit.sha,
+          force: true,
+        });
+      }
     });
 
     // Set status to completed with repo URL

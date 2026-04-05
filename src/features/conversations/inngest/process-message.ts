@@ -39,8 +39,6 @@ const hasStatusCode = (error: unknown, statusCode: number) => {
   return getErrorMessage(error).includes(`status code: ${statusCode}`);
 };
 
-const THINKING_START_MARKER = "<!--POLARIS_THINKING_START-->";
-const THINKING_END_MARKER = "<!--POLARIS_THINKING_END-->";
 const NO_TOOL_CALLS_FOR_FILE_REQUEST = "NO_TOOL_CALLS_FOR_FILE_REQUEST";
 
 const isPseudoToolCallText = (text: string) => {
@@ -77,32 +75,7 @@ const extractAssistantResponseText = (result: {
     : textMessage.content.map((c) => c.text).join("");
 };
 
-const buildThinkingTrace = (result: { state: { results: Array<{ output?: unknown[] }> } }) => {
-  const lines: string[] = [];
 
-  for (const step of result.state.results) {
-    const output = Array.isArray(step.output) ? step.output : [];
-
-    for (const item of output) {
-      if (!item || typeof item !== "object") {
-        continue;
-      }
-
-      const typedItem = item as {
-        type?: string;
-        name?: string;
-        tool_name?: string;
-      };
-
-      if (typedItem.type === "tool_call") {
-        const toolName = typedItem.name || typedItem.tool_name || "unknown_tool";
-        lines.push(`- Called \`${toolName}\``);
-      }
-    }
-  }
-
-  return lines.join("\n");
-};
 
 const hasAnyToolCalls = (result: { state: { results: Array<{ output?: unknown[] }> } }) => {
   return result.state.results.some((step) => {
@@ -170,9 +143,23 @@ const getUserFacingFailureMessage = (error: unknown) => {
 function getModelCandidates() {
   const ollamaOnly = process.env.OLLAMA_ONLY === "true";
   const candidates: Array<{
-    provider: "groq" | "gemini" | "ollama";
-    createModel: () => ReturnType<typeof gemini> | ReturnType<typeof openai>;
+    provider: "openrouter" | "gemini" | "groq";
+    createModel: () => ReturnType<typeof gemini> | ReturnType<typeof openai> | any;
   }> = [];
+
+
+
+  if (!ollamaOnly && process.env.OPENROUTER_API_KEY) {
+    candidates.push({
+      provider: "openrouter",
+      createModel: () =>
+        openai({
+          model: "google/gemini-2.0-flash-001",
+          apiKey: process.env.OPENROUTER_API_KEY,
+          baseUrl: "https://openrouter.ai/api/v1",
+        }),
+    });
+  }
 
   if (!ollamaOnly && process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
     candidates.push({
@@ -190,29 +177,14 @@ function getModelCandidates() {
       provider: "groq",
       createModel: () =>
         openai({
-          model: "llama-3.1-70b-versatile",
+          model: "llama-3.3-70b-versatile",
           apiKey: process.env.GROQ_API_KEY,
           baseUrl: "https://api.groq.com/openai/v1",
         }),
     });
   }
 
-  const ollamaEnabled =
-    process.env.OLLAMA_ENABLED === "true" ||
-    Boolean(process.env.OLLAMA_MODEL) ||
-    Boolean(process.env.OLLAMA_BASE_URL);
 
-  if (ollamaEnabled) {
-    candidates.push({
-      provider: "ollama",
-      createModel: () =>
-        openai({
-          model: process.env.OLLAMA_MODEL || "qwen2.5-coder:1.5b",
-          apiKey: process.env.OLLAMA_API_KEY || "ollama",
-          baseUrl: process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434/v1",
-        }),
-    });
-  }
 
   if (candidates.length === 0) {
     throw new NonRetriableError(
@@ -317,7 +289,7 @@ export const processMessage = inngest.createFunction(
       modelCandidate: (typeof modelCandidates)[number]
     ) => {
       const codingAgent = createAgent({
-        name: "polaris",
+        name: "nexus-ai",
         description: "An expert AI coding assistant",
         system: systemPrompt,
         model: modelCandidate.createModel(),
@@ -335,7 +307,7 @@ export const processMessage = inngest.createFunction(
       });
 
       return createNetwork({
-        name: "polaris-network",
+        name: "nexus-ai-network",
         agents: [codingAgent],
         // Lower iterations keeps responses much faster, especially on local Ollama.
         maxIter: 5,
@@ -457,10 +429,7 @@ export const processMessage = inngest.createFunction(
       assistantResponse = extractAssistantResponseText(repairedResult);
     }
 
-    const thinkingTrace = buildThinkingTrace(result as { state: { results: Array<{ output?: unknown[] }> } });
-    const persistedContent = thinkingTrace
-      ? `${THINKING_START_MARKER}\n${thinkingTrace}\n${THINKING_END_MARKER}\n\n${assistantResponse}`
-      : assistantResponse;
+    const persistedContent = assistantResponse;
 
     // Update the assistant message with the response (this also sets status to completed)
     await step.run("update-assistant-message", async () => {

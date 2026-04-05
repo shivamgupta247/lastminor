@@ -252,7 +252,7 @@ export const useWebContainer = ({
         appendOutput(`📁 Mounting ${files.length} files...\n`);
         await container.mount(fileTree);
 
-        appendOutput(`Detected app root: /${workspace.cwd || "."}\n`);
+        appendOutput(`Detected app root: /${commands.cwd || "."}\n`);
         appendOutput(`Using package.json: /${workspace.packageJsonPath}\n\n`);
 
         container.on("server-ready", (_port, url) => {
