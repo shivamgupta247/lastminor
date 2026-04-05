@@ -95,7 +95,7 @@ export const Navbar = ({
                         font.className,
                       )}
                     >
-                      Polaris
+                      Nexus AI
                     </span>
                   </Link>
                 </Button>

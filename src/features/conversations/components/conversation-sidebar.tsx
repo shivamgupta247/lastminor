@@ -50,8 +50,8 @@ interface ConversationSidebarProps {
   projectId: Id<"projects">;
 };
 
-const THINKING_START_MARKER = "<!--POLARIS_THINKING_START-->";
-const THINKING_END_MARKER = "<!--POLARIS_THINKING_END-->";
+const THINKING_START_MARKER = "<!--NEXUS_AI_THINKING_START-->";
+const THINKING_END_MARKER = "<!--NEXUS_AI_THINKING_END-->";
 
 const splitThinkingFromContent = (content: string) => {
   const startIndex = content.indexOf(THINKING_START_MARKER);
@@ -252,7 +252,7 @@ export const ConversationSidebar = ({
           >
             <PromptInputBody>
               <PromptInputTextarea
-                placeholder="Ask Polaris anything..."
+                placeholder="Ask Nexus AI anything..."
                 onChange={(e) => setInput(e.target.value)}
                 value={input}
                 disabled={isProcessing}

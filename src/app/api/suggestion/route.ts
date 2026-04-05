@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createAnthropic } from "@ai-sdk/anthropic";
 
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error) {
@@ -29,13 +30,7 @@ const isRateLimitError = (error: unknown) => {
   );
 };
 
-const isOllamaEnabled = () => {
-  return (
-    process.env.OLLAMA_ENABLED === "true" ||
-    Boolean(process.env.OLLAMA_MODEL) ||
-    Boolean(process.env.OLLAMA_BASE_URL)
-  );
-};
+
 
 const suggestionSchema = z.object({
   suggestion: z
@@ -115,17 +110,17 @@ export async function POST(request: Request) {
       .replace("{lineNumber}", lineNumber.toString());
 
     const modelCandidates: Array<{
-      provider: "groq" | "gemini" | "ollama";
+      provider: "openrouter" | "gemini" | "groq";
       model: Parameters<typeof generateText>[0]["model"];
     }> = [];
 
-    if (process.env.GROQ_API_KEY) {
+    if (process.env.OPENROUTER_API_KEY) {
       modelCandidates.push({
-        provider: "groq",
+        provider: "openrouter",
         model: createOpenAI({
-          apiKey: process.env.GROQ_API_KEY,
-          baseURL: "https://api.groq.com/openai/v1",
-        })("llama-3.3-70b-versatile", { structuredOutputs: false }),
+          apiKey: process.env.OPENROUTER_API_KEY,
+          baseURL: "https://openrouter.ai/api/v1",
+        })("google/gemini-2.0-flash-001"),
       });
     }
 
@@ -144,15 +139,17 @@ export async function POST(request: Request) {
       });
     }
 
-    if (isOllamaEnabled()) {
+    if (process.env.GROQ_API_KEY) {
       modelCandidates.push({
-        provider: "ollama",
+        provider: "groq",
         model: createOpenAI({
-          apiKey: process.env.OLLAMA_API_KEY || "ollama",
-          baseURL: process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434/v1",
-        })(process.env.OLLAMA_MODEL || "qwen2.5-coder:1.5b", { structuredOutputs: false }),
+          apiKey: process.env.GROQ_API_KEY,
+          baseURL: "https://api.groq.com/openai/v1",
+        })("llama-3.3-70b-versatile", { structuredOutputs: false }),
       });
     }
+
+
 
     if (modelCandidates.length === 0) {
       return NextResponse.json(
