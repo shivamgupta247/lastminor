@@ -259,3 +259,5 @@ A huge thank you to the sponsors who made this tutorial possible. Consider check
 - [Orchids](https://orchids.app) - Inspiration for the project
 - [shadcn/ui](https://ui.shadcn.com) - UI components
 - [CodeMirror](https://codemirror.net) - Code editor
+#   m i n o r 2 _ n e w  
+ 
