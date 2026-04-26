@@ -26,7 +26,33 @@ export const useFilePath = (fileId: Id<"files"> | null) => {
 };
 
 export const useUpdateFile = () => {
-  return useMutation(api.files.updateFile);
+  return useMutation(api.files.updateFile).withOptimisticUpdate(
+    (localStore, args) => {
+      const existingFile = localStore.getQuery(api.files.getFile, { id: args.id });
+      if (existingFile) {
+        const now = Date.now();
+        const updatedFile = {
+          ...existingFile,
+          content: args.content ?? existingFile.content,
+          updatedAt: now,
+        };
+
+        localStore.setQuery(api.files.getFile, { id: args.id }, updatedFile);
+
+        const projectFiles = localStore.getQuery(api.files.getFiles, {
+          projectId: existingFile.projectId,
+        });
+
+        if (projectFiles) {
+          localStore.setQuery(
+            api.files.getFiles,
+            { projectId: existingFile.projectId },
+            projectFiles.map((f) => (f._id === args.id ? updatedFile : f))
+          );
+        }
+      }
+    }
+  );
 };
  
 export const useCreateFile = () => {

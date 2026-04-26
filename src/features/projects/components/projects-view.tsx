@@ -1,18 +1,21 @@
 "use client";
 
 import { Poppins } from "next/font/google";
-import { SparkleIcon } from "lucide-react";
+import { SparkleIcon, Compass, FolderPlusIcon } from "lucide-react";
 import { FaGithub } from "react-icons/fa";
 import { useEffect, useState } from "react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { ProductTour, DASHBOARD_TOUR_STEPS } from "@/components/product-tour";
 
 import { ProjectsList } from "./projects-list";
 import { ProjectsCommandDialog } from "./projects-command-dialog";
 import { ImportGithubDialog } from "./import-github-dialog";
 import { NewProjectDialog } from "./new-project-dialog";
+import { BlankProjectDialog } from "./blank-project-dialog";
 
 const font = Poppins({
   subsets: ["latin"],
@@ -23,6 +26,8 @@ export const ProjectsView = () => {
   const [commandDialogOpen, setCommandDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
+  const [blankProjectDialogOpen, setBlankProjectDialogOpen] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -38,6 +43,10 @@ export const ProjectsView = () => {
         if (e.key === "j") {
           e.preventDefault();
           setNewProjectDialogOpen(true);
+        }
+        if (e.key === "b") {
+          e.preventDefault();
+          setBlankProjectDialogOpen(true);
         }
       }
     }
@@ -61,6 +70,15 @@ export const ProjectsView = () => {
         open={newProjectDialogOpen}
         onOpenChange={setNewProjectDialogOpen}
       />
+      <BlankProjectDialog
+        open={blankProjectDialogOpen}
+        onOpenChange={setBlankProjectDialogOpen}
+      />
+      <ProductTour
+        steps={DASHBOARD_TOUR_STEPS}
+        isOpen={tourOpen}
+        onClose={() => setTourOpen(false)}
+      />
       <div className="min-h-screen bg-sidebar flex flex-col items-center justify-center p-6 md:p-16">
         <div className="w-full max-w-sm mx-auto flex flex-col gap-4 items-center">
 
@@ -76,11 +94,23 @@ export const ProjectsView = () => {
               </h1>
             </div>
 
+            <ThemeToggle />
+
           </div>
+
+          {/* Get Started tour button */}
+          <button
+            className="tour-get-started-btn w-full"
+            onClick={() => setTourOpen(true)}
+          >
+            <Compass style={{ width: 16, height: 16 }} />
+            Get Started — Take a Tour
+          </button>
 
           <div className="flex flex-col gap-4 w-full">
             <div className="grid grid-cols-2 gap-2">
               <Button
+                data-tour="tour-new-btn"
                 variant="outline"
                 onClick={() => setNewProjectDialogOpen(true)}
                 className="h-full items-start justify-start p-4 bg-background border flex flex-col gap-6 rounded-none"
@@ -98,6 +128,7 @@ export const ProjectsView = () => {
                 </div>
               </Button>
               <Button
+                data-tour="tour-import-btn"
                 variant="outline"
                 onClick={() => setImportDialogOpen(true)}
                 className="h-full items-start justify-start p-4 bg-background border flex flex-col gap-6 rounded-none"
@@ -116,7 +147,22 @@ export const ProjectsView = () => {
               </Button>
             </div>
 
-            <ProjectsList onViewAll={() => setCommandDialogOpen(true)} />
+            <Button
+              data-tour="tour-blank-project-btn"
+              variant="outline"
+              onClick={() => setBlankProjectDialogOpen(true)}
+              className="w-full items-center justify-start px-4 py-3 bg-background border flex gap-3 rounded-none"
+            >
+              <FolderPlusIcon className="size-4" />
+              <span className="text-sm">New Project</span>
+              <Kbd className="bg-accent border ml-auto">
+                ⌘B
+              </Kbd>
+            </Button>
+
+            <div data-tour="tour-projects-list">
+              <ProjectsList onViewAll={() => setCommandDialogOpen(true)} />
+            </div>
 
           </div>
 

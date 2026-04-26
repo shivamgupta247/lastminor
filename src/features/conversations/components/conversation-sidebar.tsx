@@ -1,3 +1,5 @@
+"use client";
+
 import ky from "ky";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -163,7 +165,7 @@ export const ConversationSidebar = ({
         onOpenChange={setPastConversationsOpen}
         onSelect={setSelectedConversationId}
       />
-      <div className="flex flex-col h-full bg-sidebar">
+      <div data-tour="tour-chat-sidebar" className="flex flex-col h-full bg-sidebar">
         <div className="h-8.75 flex items-center justify-between border-b">
           <div className="text-sm truncate pl-3">
             {activeConversation?.title ?? DEFAULT_CONVERSATION_TITLE}
@@ -245,7 +247,7 @@ export const ConversationSidebar = ({
           </ConversationContent>
           <ConversationScrollButton />
         </Conversation>
-        <div className="p-3">
+        <div className="p-3" data-tour="tour-prompt-input">
           <PromptInput
             onSubmit={handleSubmit}
             className="mt-2"

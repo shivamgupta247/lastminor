@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Allotment } from "allotment";
-import { FaGithub } from "react-icons/fa";
+import { PanelLeftCloseIcon, PanelRightCloseIcon, PanelLeftOpenIcon, PanelRightOpenIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { EditorView } from "@/features/editor/components/editor-view";
@@ -14,80 +14,94 @@ import { ExportPopover } from "./export-popover";
 
 const MIN_SIDEBAR_WIDTH = 200;
 const MAX_SIDEBAR_WIDTH = 800;
-const DEFAULT_SIDEBAR_WIDTH = 350;
-const DEFAULT_MAIN_SIZE = 1000;
-
-const Tab = ({
-  label,
-  isActive,
-  onClick
-}: {
-  label: string;
-  isActive: boolean;
-  onClick: () => void;
-}) => {
-  return (
-    <div
-      onClick={onClick}
-      className={cn(
-        "flex items-center gap-2 h-full px-3 cursor-pointer text-muted-foreground border-r hover:bg-accent/30",
-        isActive && "bg-background text-foreground"
-      )}
-    >
-      <span className="text-sm">{label}</span>
-    </div>
-  );
-};
+const DEFAULT_SIDEBAR_WIDTH = 280;
+const DEFAULT_CODE_SIZE = 500;
+const DEFAULT_PREVIEW_SIZE = 500;
 
 export const ProjectIdView = ({ 
   projectId
 }: { 
   projectId: Id<"projects">
 }) => {
-  const [activeView, setActiveView] = useState<"editor" | "preview">("editor");
+  const [showCode, setShowCode] = useState(true);
+  const [showPreview, setShowPreview] = useState(true);
+
+  const toggleCode = () => {
+    if (showCode && !showPreview) return; // don't hide both
+    setShowCode((v) => !v);
+  };
+
+  const togglePreview = () => {
+    if (showPreview && !showCode) return; // don't hide both
+    setShowPreview((v) => !v);
+  };
 
   return (
     <div className="h-full flex flex-col">
       <nav className="h-8.75 flex items-center bg-sidebar border-b">
-        <Tab
-          label="Code"
-          isActive={activeView === "editor"}
-          onClick={() => setActiveView("editor")}
-        />
-        <Tab
-          label="Preview"
-          isActive={activeView === "preview"}
-          onClick={() => setActiveView("preview")}
-        />
-        <div className="flex-1 flex justify-end h-full">
-          <ExportPopover projectId={projectId} />
+        <button
+          data-tour="tour-code-tab"
+          onClick={toggleCode}
+          title={showCode ? "Collapse code panel" : "Expand code panel"}
+          className={cn(
+            "flex items-center gap-2 h-full px-3 border-r cursor-pointer transition-colors",
+            showCode
+              ? "text-foreground bg-background"
+              : "text-muted-foreground hover:bg-accent/30"
+          )}
+        >
+          {showCode ? (
+            <PanelLeftCloseIcon className="size-3.5" />
+          ) : (
+            <PanelLeftOpenIcon className="size-3.5" />
+          )}
+          <span className="text-sm font-medium">Code</span>
+        </button>
+        <div className="flex-1" />
+        <button
+          data-tour="tour-preview-tab"
+          onClick={togglePreview}
+          title={showPreview ? "Collapse preview panel" : "Expand preview panel"}
+          className={cn(
+            "flex items-center gap-2 h-full px-3 border-l cursor-pointer transition-colors",
+            showPreview
+              ? "text-foreground bg-background"
+              : "text-muted-foreground hover:bg-accent/30"
+          )}
+        >
+          <span className="text-sm font-medium">Preview</span>
+          {showPreview ? (
+            <PanelRightCloseIcon className="size-3.5" />
+          ) : (
+            <PanelRightOpenIcon className="size-3.5" />
+          )}
+        </button>
+        <div className="flex justify-end h-full">
+          <div data-tour="tour-export-btn">
+            <ExportPopover projectId={projectId} />
+          </div>
         </div>
       </nav>
-      <div className="flex-1 relative">
-        <div className={cn(
-          "absolute inset-0",
-          activeView === "editor" ? "visible" : "invisible"
-        )}>
-          <Allotment defaultSizes={[DEFAULT_SIDEBAR_WIDTH, DEFAULT_MAIN_SIZE]}>
-            <Allotment.Pane
-              snap
-              minSize={MIN_SIDEBAR_WIDTH}
-              maxSize={MAX_SIDEBAR_WIDTH}
-              preferredSize={DEFAULT_SIDEBAR_WIDTH}
-            >
+      <div className="flex-1 min-h-0">
+        <Allotment defaultSizes={[DEFAULT_SIDEBAR_WIDTH, DEFAULT_CODE_SIZE, DEFAULT_PREVIEW_SIZE]}>
+          <Allotment.Pane
+            snap
+            visible={showCode}
+            minSize={MIN_SIDEBAR_WIDTH}
+            maxSize={MAX_SIDEBAR_WIDTH}
+            preferredSize={DEFAULT_SIDEBAR_WIDTH}
+          >
+            <div data-tour="tour-file-explorer" className="h-full">
               <FileExplorer projectId={projectId} />
-            </Allotment.Pane>
-            <Allotment.Pane>
-              <EditorView projectId={projectId} />
-            </Allotment.Pane>
-          </Allotment>
-        </div>
-        <div className={cn(
-          "absolute inset-0",
-          activeView === "preview" ? "visible" : "invisible"
-        )}>
-          <PreviewView projectId={projectId} />
-        </div>
+            </div>
+          </Allotment.Pane>
+          <Allotment.Pane visible={showCode} minSize={200}>
+            <EditorView projectId={projectId} />
+          </Allotment.Pane>
+          <Allotment.Pane visible={showPreview} minSize={200}>
+            <PreviewView projectId={projectId} />
+          </Allotment.Pane>
+        </Allotment>
       </div>
     </div>
   );

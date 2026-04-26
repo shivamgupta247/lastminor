@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
-import { CloudCheckIcon, LoaderIcon } from "lucide-react";
+import { CloudCheckIcon, HelpCircle, LoaderIcon, MessageSquareIcon } from "lucide-react";
 import { UserButton } from "@clerk/nextjs";
 import { Poppins } from "next/font/google";
 import { formatDistanceToNow } from "date-fns";
@@ -33,9 +33,15 @@ const font = Poppins({
 })
 
 export const Navbar = ({
-  projectId
+  projectId,
+  onTourStart,
+  showChat,
+  onChatToggle,
 }: {
   projectId: Id<"projects">;
+  onTourStart?: () => void;
+  showChat?: boolean;
+  onChatToggle?: () => void;
 }) => {
   const project = useProject(projectId);
   const renameProject = useRenameProject();
@@ -150,6 +156,38 @@ export const Navbar = ({
         )}
       </div>
       <div className="flex items-center gap-2">
+        {onChatToggle && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={showChat ? "secondary" : "ghost"}
+                size="sm"
+                className="h-7 gap-1.5 rounded-lg text-xs px-2"
+                onClick={onChatToggle}
+              >
+                <MessageSquareIcon className="size-3.5" />
+                Chat
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{showChat ? "Hide chat" : "Show chat"}</TooltipContent>
+          </Tooltip>
+        )}
+        {onTourStart && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 gap-1.5 rounded-lg text-muted-foreground hover:text-foreground text-xs px-2"
+                onClick={onTourStart}
+              >
+                <HelpCircle className="size-3.5" />
+                Take a Tour
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Interactive guided tour of the editor</TooltipContent>
+          </Tooltip>
+        )}
         <UserButton />
       </div>
     </nav>

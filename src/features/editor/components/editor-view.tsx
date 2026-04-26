@@ -10,7 +10,7 @@ import { FileBreadcrumbs } from "./file-breadcrumbs";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { AlertTriangleIcon } from "lucide-react";
 
-const DEBOUNCE_MS = 1500;
+const DEBOUNCE_MS = 500;
 
 export const EditorView = ({ projectId }: { projectId: Id<"projects"> }) => {
   const { activeTabId } = useEditor(projectId);

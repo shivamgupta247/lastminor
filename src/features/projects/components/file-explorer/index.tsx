@@ -58,6 +58,7 @@ export const FileExplorer = ({
     <div className="h-full bg-sidebar">
       <ScrollArea>
         <div
+          data-tour="tour-file-actions"
           role="button"
           onClick={() => setIsOpen((value) => !value)}
           className="group/project cursor-pointer w-full text-left flex items-center gap-0.5 h-5.5 bg-accent font-bold"
@@ -71,8 +72,9 @@ export const FileExplorer = ({
           <p className="text-xs uppercase line-clamp-1">
             {project?.name ?? "Loading..."}
           </p>
-          <div className="opacity-0 group-hover/project:opacity-100 transition-none duration-0 flex items-center gap-0.5 ml-auto">
+          <div className="flex items-center gap-0.5 ml-auto">
             <Button
+              data-tour="tour-create-file"
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
@@ -85,6 +87,7 @@ export const FileExplorer = ({
               <FilePlusCornerIcon className="size-3.5" />
             </Button>
             <Button
+              data-tour="tour-create-folder"
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
