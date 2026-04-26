@@ -415,7 +415,7 @@ export const processMessage = inngest.createFunction(
       throw new NonRetriableError("Unable to process the message with configured AI providers.");
     }
 
-    let assistantResponse = extractAssistantResponseText(result);
+    let assistantResponse = extractAssistantResponseText(result as any);
 
     // Small local models may print fake JSON tool payloads instead of executing tools.
     // Retry once with an explicit correction prompt before persisting output.
@@ -426,7 +426,7 @@ export const processMessage = inngest.createFunction(
       );
 
       result = repairedResult;
-      assistantResponse = extractAssistantResponseText(repairedResult);
+      assistantResponse = extractAssistantResponseText(repairedResult as any);
     }
 
     const persistedContent = assistantResponse;

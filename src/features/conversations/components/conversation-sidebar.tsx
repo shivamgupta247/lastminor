@@ -1,12 +1,17 @@
 "use client";
 
-import ky from "ky";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   CopyIcon,
   HistoryIcon,
-  PlusIcon
+  PaperclipIcon,
+  PlusIcon,
+  XIcon,
+  FileTextIcon,
+  FileSpreadsheetIcon,
+  FileIcon,
+  ImageIcon,
 } from "lucide-react";
 
 import {
@@ -36,6 +41,11 @@ import {
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 import {
   useConversation,
@@ -51,6 +61,9 @@ import { PastConversationsDialog } from "./past-conversations-dialog";
 interface ConversationSidebarProps {
   projectId: Id<"projects">;
 };
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+const MAX_FILES = 5;
 
 const THINKING_START_MARKER = "<!--NEXUS_AI_THINKING_START-->";
 const THINKING_END_MARKER = "<!--NEXUS_AI_THINKING_END-->";
@@ -74,10 +87,32 @@ const splitThinkingFromContent = (content: string) => {
   };
 };
 
+const getFileIcon = (filename: string) => {
+  const ext = filename.split(".").pop()?.toLowerCase() || "";
+  if (["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "ico"].includes(ext)) {
+    return <ImageIcon className="size-3.5 text-emerald-400" />;
+  }
+  if (["xlsx", "xls", "csv"].includes(ext)) {
+    return <FileSpreadsheetIcon className="size-3.5 text-green-400" />;
+  }
+  if (["pdf", "doc", "docx", "txt", "md"].includes(ext)) {
+    return <FileTextIcon className="size-3.5 text-blue-400" />;
+  }
+  return <FileIcon className="size-3.5 text-muted-foreground" />;
+};
+
+const formatFileSize = (bytes: number) => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
 export const ConversationSidebar = ({
   projectId,
 }: ConversationSidebarProps) => {
   const [input, setInput] = useState("");
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [
     selectedConversationId,
     setSelectedConversationId,
@@ -103,9 +138,12 @@ export const ConversationSidebar = ({
 
   const handleCancel = async () => {
     try {
-      await ky.post("/api/messages/cancel", {
-        json: { projectId },
+      const response = await fetch("/api/messages/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId }),
       });
+      if (!response.ok) throw new Error("Cancel failed");
     } catch {
       toast.error("Unable to cancel request");
     }
@@ -123,6 +161,37 @@ export const ConversationSidebar = ({
       toast.error("Unable to create new conversation");
       return null;
     }
+  };
+
+  const handleFileSelect = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    // Validate files
+    const totalFiles = attachedFiles.length + files.length;
+    if (totalFiles > MAX_FILES) {
+      toast.error(`Maximum ${MAX_FILES} files allowed`);
+      return;
+    }
+
+    const oversizedFiles = files.filter(f => f.size > MAX_FILE_SIZE);
+    if (oversizedFiles.length > 0) {
+      toast.error(`File "${oversizedFiles[0].name}" exceeds 10MB limit`);
+      return;
+    }
+
+    setAttachedFiles(prev => [...prev, ...files]);
+
+    // Reset the input so the same file can be re-selected
+    e.target.value = "";
+  };
+
+  const handleRemoveFile = (index: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (message: PromptInputMessage) => {
@@ -144,21 +213,58 @@ export const ConversationSidebar = ({
 
     // Trigger Inngest function via API
     try {
-      await ky.post("/api/messages", {
-        json: {
-          conversationId,
-          message: message.text,
-        },
-      });
-    } catch {
-      toast.error("Message failed to send");
+      if (attachedFiles.length > 0) {
+        // Send as FormData with files
+        const formData = new FormData();
+        formData.append("conversationId", conversationId);
+        formData.append("message", message.text);
+        for (const file of attachedFiles) {
+          formData.append("files", file);
+        }
+
+        const response = await fetch("/api/messages", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || "Upload failed");
+        }
+      } else {
+        // Send as JSON (original behavior)
+        const response = await fetch("/api/messages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            conversationId,
+            message: message.text,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Message failed to send");
+        }
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Message failed to send");
     }
 
     setInput("");
+    setAttachedFiles([]);
   }
 
   return (
     <>
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={handleFileChange}
+        accept=".txt,.csv,.json,.md,.xml,.html,.js,.ts,.jsx,.tsx,.css,.py,.pdf,.docx,.doc,.xlsx,.xls,.png,.jpg,.jpeg,.gif,.webp,.svg,.yaml,.yml,.toml,.sql,.log"
+      />
       <PastConversationsDialog
         projectId={projectId}
         open={pastConversationsOpen}
@@ -248,6 +354,32 @@ export const ConversationSidebar = ({
           <ConversationScrollButton />
         </Conversation>
         <div className="p-3" data-tour="tour-prompt-input">
+          {/* Attached files display */}
+          {attachedFiles.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {attachedFiles.map((file, index) => (
+                <div
+                  key={`${file.name}-${index}`}
+                  className="group flex items-center gap-1.5 rounded-md border border-border/60 bg-accent/30 px-2 py-1 text-xs transition-colors hover:bg-accent/50"
+                >
+                  {getFileIcon(file.name)}
+                  <span className="max-w-[120px] truncate text-foreground">
+                    {file.name}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {formatFileSize(file.size)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveFile(index)}
+                    className="ml-0.5 rounded-sm p-0.5 text-muted-foreground opacity-60 transition-opacity hover:opacity-100 hover:text-destructive cursor-pointer"
+                  >
+                    <XIcon className="size-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           <PromptInput
             onSubmit={handleSubmit}
             className="mt-2"
@@ -261,9 +393,21 @@ export const ConversationSidebar = ({
               />
             </PromptInputBody>
             <PromptInputFooter>
-              <PromptInputTools />
+              <PromptInputTools>
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant="ghost"
+                  onClick={handleFileSelect}
+                  disabled={isProcessing}
+                  className="rounded-full text-muted-foreground hover:bg-accent hover:text-foreground"
+                  title="Attach files (PDF, Excel, images, docs, code...)"
+                >
+                  <PaperclipIcon className="size-4" />
+                </Button>
+              </PromptInputTools>
               <PromptInputSubmit
-                disabled={isProcessing ? false : !input}
+                disabled={isProcessing ? false : !input && attachedFiles.length === 0}
                 status={isProcessing ? "streaming" : undefined}
               />
             </PromptInputFooter>

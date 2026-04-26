@@ -4,9 +4,13 @@ import { auth } from "@clerk/nextjs/server";
 
 import { inngest } from "@/inngest/client";
 import { convex } from "@/lib/convex-client";
+import { extractFileText, formatAttachmentsForAI } from "@/lib/extract-file-text";
 
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+const MAX_FILES = 5;
 
 const requestSchema = z.object({
   conversationId: z.string(),
@@ -29,8 +33,76 @@ export async function POST(request: Request) {
     );
   }
 
-  const body = await request.json();
-  const { conversationId, message } = requestSchema.parse(body);
+  let conversationId: string;
+  let message: string;
+  let uploadedFiles: File[] = [];
+
+  // Determine content type and parse accordingly
+  const contentType = request.headers.get("content-type") || "";
+
+  if (contentType.includes("multipart/form-data")) {
+    // Handle FormData (with potential file attachments)
+    const formData = await request.formData();
+    conversationId = formData.get("conversationId") as string;
+    message = formData.get("message") as string;
+
+    // Collect uploaded files
+    const fileEntries = formData.getAll("files");
+    for (const entry of fileEntries) {
+      if (entry instanceof File && entry.size > 0) {
+        if (entry.size > MAX_FILE_SIZE) {
+          return NextResponse.json(
+            { error: `File "${entry.name}" exceeds ${MAX_FILE_SIZE / 1024 / 1024}MB limit` },
+            { status: 400 }
+          );
+        }
+        uploadedFiles.push(entry);
+      }
+    }
+
+    if (uploadedFiles.length > MAX_FILES) {
+      return NextResponse.json(
+        { error: `Maximum ${MAX_FILES} files allowed` },
+        { status: 400 }
+      );
+    }
+
+    // Validate required fields
+    if (!conversationId || !message) {
+      return NextResponse.json(
+        { error: "conversationId and message are required" },
+        { status: 400 }
+      );
+    }
+  } else {
+    // Handle JSON (original behavior, backward compatible)
+    const body = await request.json();
+    const parsed = requestSchema.parse(body);
+    conversationId = parsed.conversationId;
+    message = parsed.message;
+  }
+
+  // Extract text from uploaded files and append to message
+  let augmentedMessage = message;
+
+  if (uploadedFiles.length > 0) {
+    const attachments: { filename: string; text: string }[] = [];
+
+    for (const file of uploadedFiles) {
+      try {
+        const extracted = await extractFileText(file);
+        attachments.push({ filename: file.name, text: extracted.text });
+      } catch (error) {
+        console.warn(`Failed to extract text from ${file.name}:`, error);
+        attachments.push({
+          filename: file.name,
+          text: `[Failed to extract content from ${file.name}]`,
+        });
+      }
+    }
+
+    augmentedMessage = message + formatAttachmentsForAI(attachments);
+  }
 
   // Call convex mutation, query
   const conversation = await convex.query(api.system.getConversationById, {
@@ -76,13 +148,15 @@ export async function POST(request: Request) {
     );
   }
 
-  // Create user message
+  // Create user message (store original message for display, but send augmented to AI)
   await convex.mutation(api.system.createMessage, {
     internalKey,
     conversationId: conversationId as Id<"conversations">,
     projectId,
     role: "user",
-    content: message,
+    content: uploadedFiles.length > 0
+      ? `${message}\n\n📎 ${uploadedFiles.length} file(s) attached: ${uploadedFiles.map(f => f.name).join(", ")}`
+      : message,
   });
 
   // Create assistant message placeholder with processing status
@@ -98,14 +172,14 @@ export async function POST(request: Request) {
     }
   );
 
-  // Trigger Inngest to process the message
+  // Trigger Inngest to process the message (with augmented content including file context)
   const event = await inngest.send({
     name: "message/sent",
     data: {
       messageId: assistantMessageId,
       conversationId,
       projectId,
-      message,
+      message: augmentedMessage,
     },
   });
 
