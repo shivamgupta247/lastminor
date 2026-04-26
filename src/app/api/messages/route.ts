@@ -12,9 +12,31 @@ import { Id } from "../../../../convex/_generated/dataModel";
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 const MAX_FILES = 5;
 
+const STRICT_SOURCE_INSTRUCTION = `
+--- STRICT SOURCE MODE ---
+Use ONLY facts that appear in the uploaded file context.
+Do not use outside knowledge, assumptions, or prior context that is not present in those files.
+If required information is missing, explicitly say it is not available in the uploaded files.
+For quiz requests, generate questions strictly from uploaded content only.
+`;
+
+const parseBooleanLike = (value: unknown): boolean => {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    return normalized === "true" || normalized === "1" || normalized === "yes";
+  }
+
+  return false;
+};
+
 const requestSchema = z.object({
   conversationId: z.string(),
   message: z.string(),
+  strictSource: z.boolean().optional().default(false),
 });
 
 export async function POST(request: Request) {
@@ -36,6 +58,7 @@ export async function POST(request: Request) {
   let conversationId: string;
   let message: string;
   let uploadedFiles: File[] = [];
+  let strictSource = false;
 
   // Determine content type and parse accordingly
   const contentType = request.headers.get("content-type") || "";
@@ -45,6 +68,7 @@ export async function POST(request: Request) {
     const formData = await request.formData();
     conversationId = formData.get("conversationId") as string;
     message = formData.get("message") as string;
+    strictSource = parseBooleanLike(formData.get("strictSource"));
 
     // Collect uploaded files
     const fileEntries = formData.getAll("files");
@@ -80,6 +104,14 @@ export async function POST(request: Request) {
     const parsed = requestSchema.parse(body);
     conversationId = parsed.conversationId;
     message = parsed.message;
+    strictSource = parsed.strictSource;
+  }
+
+  if (strictSource && uploadedFiles.length === 0) {
+    return NextResponse.json(
+      { error: "Strict source mode requires at least one uploaded file" },
+      { status: 400 }
+    );
   }
 
   // Extract text from uploaded files and append to message
@@ -100,8 +132,10 @@ export async function POST(request: Request) {
         });
       }
     }
-
-    augmentedMessage = message + formatAttachmentsForAI(attachments);
+    const attachmentContext = formatAttachmentsForAI(attachments);
+    augmentedMessage = strictSource
+      ? `${STRICT_SOURCE_INSTRUCTION}\n\nUser request:\n${message}${attachmentContext}`
+      : message + attachmentContext;
   }
 
   // Call convex mutation, query
@@ -155,7 +189,7 @@ export async function POST(request: Request) {
     projectId,
     role: "user",
     content: uploadedFiles.length > 0
-      ? `${message}\n\n📎 ${uploadedFiles.length} file(s) attached: ${uploadedFiles.map(f => f.name).join(", ")}`
+      ? `${message}\n\n📎 ${uploadedFiles.length} file(s) attached: ${uploadedFiles.map(f => f.name).join(", ")}${strictSource ? "\n🔒 Source mode: uploaded files only" : ""}`
       : message,
   });
 

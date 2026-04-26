@@ -41,6 +41,8 @@ import {
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Tooltip,
   TooltipContent,
@@ -112,6 +114,7 @@ export const ConversationSidebar = ({
 }: ConversationSidebarProps) => {
   const [input, setInput] = useState("");
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [strictSourceMode, setStrictSourceMode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [
     selectedConversationId,
@@ -218,6 +221,7 @@ export const ConversationSidebar = ({
         const formData = new FormData();
         formData.append("conversationId", conversationId);
         formData.append("message", message.text);
+        formData.append("strictSource", String(strictSourceMode));
         for (const file of attachedFiles) {
           formData.append("files", file);
         }
@@ -239,6 +243,7 @@ export const ConversationSidebar = ({
           body: JSON.stringify({
             conversationId,
             message: message.text,
+            strictSource: strictSourceMode,
           }),
         });
 
@@ -363,7 +368,7 @@ export const ConversationSidebar = ({
                   className="group flex items-center gap-1.5 rounded-md border border-border/60 bg-accent/30 px-2 py-1 text-xs transition-colors hover:bg-accent/50"
                 >
                   {getFileIcon(file.name)}
-                  <span className="max-w-[120px] truncate text-foreground">
+                  <span className="max-w-30 truncate text-foreground">
                     {file.name}
                   </span>
                   <span className="text-muted-foreground">
@@ -380,6 +385,27 @@ export const ConversationSidebar = ({
               ))}
             </div>
           )}
+
+          <div className="mb-2 flex items-center justify-between rounded-md border border-border/60 bg-muted/30 px-2.5 py-1.5">
+            <div className="min-w-0">
+              <Label
+                htmlFor="strict-source-mode"
+                className="text-xs font-medium text-foreground"
+              >
+                Use uploaded files only
+              </Label>
+              <p className="text-[11px] text-muted-foreground">
+                AI will answer only from your attachments.
+              </p>
+            </div>
+            <Switch
+              id="strict-source-mode"
+              checked={strictSourceMode}
+              onCheckedChange={setStrictSourceMode}
+              disabled={isProcessing}
+            />
+          </div>
+
           <PromptInput
             onSubmit={handleSubmit}
             className="mt-2"
