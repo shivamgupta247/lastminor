@@ -161,7 +161,7 @@ export async function POST(request: Request) {
         model: createOpenAI({
           apiKey: process.env.GROQ_API_KEY,
           baseURL: "https://api.groq.com/openai/v1",
-        })("llama-3.1-8b-instant", { structuredOutputs: false }),
+        })("llama-3.1-8b-instant"),
       });
     }
 
