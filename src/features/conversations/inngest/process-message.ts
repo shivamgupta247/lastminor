@@ -201,6 +201,7 @@ export const processMessage = inngest.createFunction(
     // No retries: a 429 retry immediately hits the rate limit again, causing a cascade.
     // The onFailure handler below gives the user a proper error message instead.
     retries: 0,
+    triggers: [{ event: "message/sent" }],
     cancelOn: [
       {
         event: "message/cancel",
@@ -222,9 +223,6 @@ export const processMessage = inngest.createFunction(
         });
       }
     }
-  },
-  {
-    event: "message/sent",
   },
   async ({ event, step }) => {
     const {

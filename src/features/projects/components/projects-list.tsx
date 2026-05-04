@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { FaGithub } from "react-icons/fa";
 import { formatDistanceToNow } from "date-fns";
 import {
@@ -74,6 +75,8 @@ const ProjectActions = ({
   projectId: Id<"projects">;
   projectName: string;
 }) => {
+  const router = useRouter();
+  const pathname = usePathname();
   const renameProject = useRenameProject();
   const deleteProject = useDeleteProject();
 
@@ -96,6 +99,11 @@ const ProjectActions = ({
     deleteProject({ id: projectId });
     toast.success("Project deleted");
     setDeleteOpen(false);
+
+    // If the user is currently viewing the deleted project, redirect to home
+    if (pathname?.includes(projectId)) {
+      router.replace("/");
+    }
   };
 
   return (
